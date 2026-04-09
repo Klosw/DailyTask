@@ -1,0 +1,50 @@
+name: Android Release CI
+
+on:
+  release:
+    # 当你在 GitHub 页面创建并发布一个 Release 时触发
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # 授予该任务写入 Release 的权限
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: set up JDK 11
+      uses: actions/setup-java@v4
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Build with Gradle
+      # 执行 release 编译
+      run: ./gradlew assemblerelease --build-cache --parallel --no-daemon
+
+    - name: Upload to GitHub Release
+      uses: softprops/action-gh-release@v2
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        # 指定要上传的文件路径（支持通配符）
+        files: |
+          app/build/outputs/apk/release/*.apk
+          app/build/outputs/bundle/release/*.aab
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    # 依然建议保留 Artifacts 备份，方便在 Actions 页面直接查看
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-build-backups
+        path: |
+          **/build/outputs/apk/release/*.apk
+          **/build/outputs/bundle/release/*.aab
